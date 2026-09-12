@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Fish Tank · door</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{margin:0;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:24px;transition:background .5s}
+.busy{background:#b3261e;color:#fff}.late{background:#e08a00;color:#1a1200}.free{background:#1b7f4a;color:#fff}.idle{background:#233;color:#fff}
+h1{font-size:14vw;margin:0;line-height:1}p{font-size:5vw;margin:12px 0 0}small{font-size:3.5vw;opacity:.8}</style></head>
+<body class="idle"><h1 id="h">Fish Tank</h1><p id="p">connecting…</p><small id="s"></small>
+<script>
+let S=null;const es=new EventSource("/events");es.onmessage=e=>{S=JSON.parse(e.data);render();};es.onerror=()=>{document.body.className="idle";p.textContent="sign offline";};
+function t(iso){return new Date(iso).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});}
+function render(){if(!S)return;const st=S.meeting.status,h=document.getElementById("h"),p=document.getElementById("p"),s=document.getElementById("s");
+  if(st==="ended"){document.body.className="free";h.textContent="AVAILABLE";p.textContent="Meeting ended early";s.textContent="ended "+t(S.meeting.endsAt);}
+  else if(st==="in_progress"||st==="wrapping"){const late=Date.now()>Date.parse(S.meeting.endsAt);document.body.className=late?"late":"busy";h.textContent=late?"RUNNING LATE":"IN USE";p.textContent=S.meeting.title;s.textContent=(late?"was due to end ":"until ")+t(S.meeting.endsAt);}
+  else{document.body.className="idle";h.textContent="RESERVED";p.textContent=S.meeting.title;s.textContent="starts "+t(S.meeting.startsAt);}}
+setInterval(render,5000);
+</script></body></html>

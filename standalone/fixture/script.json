@@ -1,0 +1,26 @@
+{
+  "meeting": { "title": "Vendor selection sync", "plannedMinutes": 4 },
+  "attendees": [
+    { "id": "a1", "name": "Mat" },
+    { "id": "a2", "name": "Sam" },
+    { "id": "a3", "name": "Priya" }
+  ],
+  "agenda": [
+    { "id": "g1", "title": "Pick the vendor", "plannedMinutes": 1 },
+    { "id": "g2", "title": "Rollout plan", "plannedMinutes": 1.5 },
+    { "id": "g3", "title": "Budget", "plannedMinutes": 1 }
+  ],
+  "lines": [
+    { "delay": 2, "speaker": "Mat", "text": "Okay, let's start with the vendor. We looked at Acme and Northwind last week." },
+    { "delay": 6, "speaker": "Sam", "text": "Northwind's support was better in the trial and the price difference was small." },
+    { "delay": 6, "speaker": "Priya", "text": "Agreed. Let's go with Northwind." },
+    { "delay": 5, "speaker": "Mat", "text": "Decision made, Northwind it is. Sam, can you own the contract follow-up with them by Friday?" },
+    { "delay": 6, "speaker": "Sam", "text": "Yes, I'll take the contract." },
+    { "delay": 8, "speaker": "Mat", "text": "Great, this is running long, let's move on to rollout." },
+    { "delay": 6, "speaker": "Priya", "text": "We should pilot with the field team first before the whole department." },
+    { "delay": 6, "speaker": "Sam", "text": "Someone needs to draft the pilot checklist for the field team." },
+    { "delay": 7, "speaker": "Mat", "text": "No, that one's Priya's. Priya, you draft the checklist." },
+    { "delay": 6, "speaker": "Priya", "text": "Got it, I'll have the checklist ready next Wednesday." },
+    { "delay": 7, "speaker": "Mat", "text": "Budget is already approved, so nothing to discuss there. That's a wrap, thanks everyone." }
+  ]
+}

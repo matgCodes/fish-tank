@@ -1,0 +1,105 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Fish Tank · room</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0b1220;--panel:#121c31;--ink:#e8eefc;--dim:#8fa0c4;--ok:#39d98a;--warn:#ffb347;--bad:#ff6b6b;--acc:#5aa9ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding:20px}
+header{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+h1{font-size:22px;margin:0}.badge{padding:4px 10px;border-radius:999px;font-size:13px;background:#1f2b47;color:var(--dim)}
+.badge.on{background:#123d2a;color:var(--ok)}.badge.warn{background:#4a3410;color:var(--warn)}.badge.bad{background:#4a1a1a;color:var(--bad)}
+.banner{background:#1b2a4a;color:var(--acc);padding:6px 12px;border-radius:8px;font-size:14px}
+main{display:grid;grid-template-columns:1fr 1.4fr;gap:16px}@media(max-width:900px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border-radius:12px;padding:16px}.panel h2{margin:0 0 10px;font-size:15px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.agenda .item{display:flex;justify-content:space-between;padding:10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.agenda .item.cur{background:#1b2a4a;border-color:var(--acc)}.agenda .item.done{color:var(--dim);text-decoration:line-through}
+.timer{font-variant-numeric:tabular-nums}.timer.over{color:var(--bad);font-weight:600}.timer.soon{color:var(--warn)}
+.nudge{margin-top:10px;padding:10px;border-radius:8px;background:#4a3410;color:var(--warn);font-weight:600}.nudge.over{background:#4a1a1a;color:var(--bad)}
+.ledger .row{display:grid;grid-template-columns:78px 1fr auto auto;gap:10px;align-items:center;padding:10px;border-bottom:1px solid #1f2b47;animation:pop .4s}
+@keyframes pop{from{background:#1b2a4a}to{background:transparent}}
+.kind{font-size:12px;padding:3px 8px;border-radius:6px;text-align:center}.kind.decision{background:#123d2a;color:var(--ok)}.kind.action{background:#1b2a4a;color:var(--acc)}
+.text[contenteditable]{outline:none;padding:2px 4px;border-radius:4px}.text:focus{background:#0b1220}
+select,button{font:inherit;border-radius:8px;border:1px solid #2a3a5e;background:#1b2a4a;color:var(--ink);padding:6px 10px;cursor:pointer}
+button.primary{background:var(--acc);color:#04101f;border-color:var(--acc);font-weight:600}button.danger{color:var(--bad)}
+.owner.unset{color:var(--warn);border-color:var(--warn)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+pre{white-space:pre-wrap;background:#0b1220;padding:12px;border-radius:8px;font-size:14px}
+.log{font-size:12px;color:var(--dim);max-height:160px;overflow:auto}.due{font-size:13px;color:var(--dim)}
+.empty{color:var(--dim);font-style:italic}
+</style></head><body>
+<header>
+  <h1 id="title">Fish Tank</h1>
+  <span class="badge" id="b-listen">listening</span>
+  <span class="badge" id="b-agent">agent</span>
+  <span class="badge" id="b-meeting">scheduled</span>
+  <span class="banner" id="banner">This room is listening</span>
+</header>
+<main>
+  <section class="panel agenda">
+    <h2>Agenda</h2><div id="agenda"></div><div id="nudge"></div>
+    <div class="controls">
+      <button id="replay" class="primary">Start replay</button>
+      <button id="mic">Mic on</button>
+      <button id="pause">Pause listening</button>
+      <button id="end" class="danger">End meeting</button>
+      <button id="reset">Reset</button>
+    </div>
+    <div class="controls"><input id="say" placeholder="type an utterance and press enter" style="flex:1;font:inherit;padding:6px 10px;border-radius:8px;border:1px solid #2a3a5e;background:#0b1220;color:var(--ink)"></div>
+    <h2 style="margin-top:16px">Log</h2><div class="log" id="log"></div>
+  </section>
+  <section class="panel ledger">
+    <h2>Ledger</h2><div id="ledger"></div>
+    <div id="followup"></div>
+  </section>
+</main>
+<script>
+let S=null, micOn=false, rec=null;
+const $=id=>document.getElementById(id);
+const post=(p,b={})=>fetch(p,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b)});
+const op=o=>post("/op",{op:o});
+const es=new EventSource("/events"); es.onmessage=e=>{S=JSON.parse(e.data);render();}; es.onerror=()=>{$("b-agent").textContent="server offline, keeping last ledger";$("b-agent").className="badge bad";};
+function fmt(sec){const s=Math.max(0,Math.round(Math.abs(sec)));return (sec<0?"-":"")+Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+function render(){
+  if(!S)return;
+  $("title").textContent="Fish Tank · "+S.meeting.title;
+  const L=S.listening.status; $("b-listen").textContent=L==="listening"?"listening":L==="not_hearing"?"not hearing":L==="paused"?"paused":L; $("b-listen").className="badge "+(L==="listening"?"on":L==="not_hearing"?"warn":"");
+  const A=S.agent.status; $("b-agent").textContent=A==="thinking"?"thinking…":A==="offline"?"offline, keeping last ledger":"agent idle"; $("b-agent").className="badge "+(A==="thinking"?"on":A==="offline"?"bad":"");
+  $("b-meeting").textContent=S.meeting.status.replace("_"," "); $("b-meeting").className="badge "+(S.meeting.status==="in_progress"?"on":S.meeting.status==="ended"?"warn":"");
+  $("banner").style.display=L==="paused"||S.meeting.status==="ended"?"none":"";
+  $("replay").textContent=S.replay.running?"Stop replay":"Start replay";
+  $("pause").textContent=L==="paused"?"Resume listening":"Pause listening";
+  $("mic").textContent=micOn?"Mic off":"Mic on";
+  // agenda
+  let nudge="";
+  $("agenda").innerHTML=S.agenda.map(a=>{const cur=a.id===S.currentAgendaItemId;let t="";
+    if(cur&&a.startedAt){const el=(Date.now()-Date.parse(a.startedAt))/1000,rem=a.plannedMinutes*60-el;const cls=rem<0?"over":rem<a.plannedMinutes*60*0.2?"soon":"";t=`<span class="timer ${cls}">${fmt(rem)}</span>`;
+      if(rem<0)nudge=`<div class="nudge over">"${a.title}" is ${fmt(rem).slice(1)} over. Move on?</div>`;else if(rem<a.plannedMinutes*60*0.2)nudge=`<div class="nudge">${fmt(rem)} left on "${a.title}"</div>`;}
+    else t=`<span class="timer" style="color:var(--dim)">${a.plannedMinutes} min</span>`;
+    return `<div class="item ${cur?"cur":""} ${a.endedAt&&!cur?"done":""}" onclick='op({type:"set_current_agenda_item",agendaItemId:"${a.id}"})'><span>${a.title}</span>${t}</div>`;}).join("");
+  $("nudge").innerHTML=S.meeting.status==="ended"?"":nudge;
+  // ledger
+  const opts=id=>`<option value="">owner?</option>`+S.attendees.map(x=>`<option value="${x.id}" ${x.id===id?"selected":""}>${x.name}</option>`).join("");
+  $("ledger").innerHTML=S.ledger.length?S.ledger.map(i=>`<div class="row" id="row-${i.id}">
+    <span class="kind ${i.kind}">${i.kind}</span>
+    <div><div class="text" contenteditable onblur='edit("${i.id}",this.innerText)'>${esc(i.text)}</div>${i.due?`<div class="due">due ${esc(i.due)}</div>`:""}</div>
+    ${i.kind==="action"?`<select class="owner ${i.ownerId?"":"unset"}" onchange='op({type:"update_item",id:"${i.id}",ownerId:this.value||null})'>${opts(i.ownerId)}</select>`:"<span></span>"}
+    <button class="danger" onclick='op({type:"remove_item",id:"${i.id}"})'>✕</button></div>`).join(""):`<div class="empty">Nothing yet. Decisions and action items land here as they are spoken.</div>`;
+  // follow-up
+  const F=S.followUp; $("followup").innerHTML=F.status==="none"?"":`<h2 style="margin-top:16px">Follow-up ${F.status==="sent"?"· sent":"· proposed, not sent"}</h2><pre>${esc(F.text||"")}</pre>${F.error?`<div class="nudge over">Send failed: ${esc(F.error)}</div>`:""}${F.status==="proposed"?`<button class="primary" onclick='post("/followup/send")'>Send follow-up</button>`:""}`;
+  $("log").innerHTML=S.log.map(esc).join("<br>");
+}
+function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function edit(id,text){const i=S.ledger.find(x=>x.id===id);if(i&&i.text!==text.trim())op({type:"update_item",id,text:text.trim()});}
+setInterval(()=>{if(S)render();},1000);
+$("replay").onclick=()=>post(S.replay.running?"/replay/stop":"/replay/start");
+$("pause").onclick=()=>post("/listening",{status:S.listening.status==="paused"?"listening":"paused"});
+$("end").onclick=()=>{if(S.meeting.status!=="ended")op({type:"set_meeting_status",status:"ended"});};
+$("reset").onclick=()=>post("/reset");
+$("say").onkeydown=e=>{if(e.key==="Enter"&&e.target.value.trim()){post("/utterance",{text:e.target.value.trim()});e.target.value="";}};
+// live mic: Chrome Web Speech API, auto-restart on end
+$("mic").onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return alert("Web Speech API not available in this browser");
+  if(micOn){micOn=false;rec&&rec.stop();render();return;}
+  micOn=true;rec=new SR();rec.continuous=true;rec.interimResults=false;rec.lang="en-US";
+  rec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal){const t=e.results[i][0].transcript.trim();if(t)post("/utterance",{text:t});}};
+  rec.onerror=e=>{console.log("speech error",e.error);};
+  rec.onend=()=>{if(micOn)try{rec.start()}catch(e){}};
+  rec.start();post("/listening",{status:"listening"});render();};
+</script></body></html>
