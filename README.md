@@ -72,6 +72,36 @@ updates the item on screen instead of adding a second one.
 - Follow-up post fails: visible error on screen, item stays proposed.
 - Unknown ledger ids from the model are dropped and logged.
 
+## Run it
+
+```sh
+npm install
+npm run dev        # binds 0.0.0.0:3000 so a phone on the same Wi-Fi can load it
+npm test           # operations applier
+```
+
+Open `http://<laptop LAN IP>:3000` on every display. On macOS, allow
+incoming connections for node if the firewall asks.
+
+| Path | What it does |
+|---|---|
+| `lib/types.ts` | `MeetingState` and `Operation`, mirroring `docs/ops-schema-draft.md` |
+| `lib/ops.ts` | The operations applier. Pure; drops invalid ops with a reason |
+| `lib/store.ts` | The one in-memory store on `globalThis`, with subscribe and publish |
+| `lib/replay.ts` | Fixture replay entry point. Pass `onUtterance` to plug in extraction |
+| `fixtures/demo.json` | Stub meeting and script with scripted ops per utterance |
+| `POST /api/ops` | `{ source: "agent" \| "human", ops: Operation[] }` |
+| `GET /api/events` | Server-sent events: full state on connect and on every change |
+| `POST /api/replay` | `{ fixture?: "demo", speed?: number }` resets state and replays |
+
+```sh
+curl -X POST localhost:3000/api/ops -H 'content-type: application/json' \
+  -d '{"source":"human","ops":[{"type":"add_item","kind":"action","text":"Test"}]}'
+curl -X POST localhost:3000/api/replay -H 'content-type: application/json' -d '{"speed":10}'
+```
+
+State is in memory: restarting the dev server clears it.
+
 ## Known limitation
 
 Without speaker identification the agent cannot tell who said "I'll take

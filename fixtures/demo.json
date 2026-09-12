@@ -1,0 +1,74 @@
+{
+  "name": "demo",
+  "note": "Stub built from the concept plan's demo beats. Replace with the frozen demo script.",
+  "meeting": {
+    "meeting": {
+      "id": "demo",
+      "title": "Launch sync",
+      "startsAt": "2026-09-12T14:00:00-07:00",
+      "endsAt": "2026-09-12T14:30:00-07:00",
+      "status": "scheduled"
+    },
+    "attendees": [
+      { "id": "a1", "name": "Sam" },
+      { "id": "a2", "name": "Priya" },
+      { "id": "a3", "name": "Jordan" }
+    ],
+    "agenda": [
+      { "id": "g1", "title": "Launch status", "plannedMinutes": 10 },
+      { "id": "g2", "title": "Vendor follow-up", "plannedMinutes": 10 },
+      { "id": "g3", "title": "Next steps", "plannedMinutes": 5 }
+    ],
+    "currentAgendaItemId": null,
+    "ledger": [],
+    "listening": { "status": "listening", "lastHeardAt": null },
+    "followUp": { "status": "none" }
+  },
+  "script": [
+    {
+      "atMs": 0,
+      "speaker": "Jordan",
+      "text": "Okay, let's get started with launch status.",
+      "ops": [
+        { "type": "set_meeting_status", "status": "in_progress" },
+        { "type": "set_current_agenda_item", "agendaItemId": "g1" }
+      ]
+    },
+    {
+      "atMs": 8000,
+      "speaker": "Priya",
+      "text": "We're shipping the launch on the blue design.",
+      "ops": [{ "type": "add_item", "kind": "decision", "text": "Ship the launch on the blue design" }]
+    },
+    {
+      "atMs": 20000,
+      "speaker": "Jordan",
+      "text": "Let's move on to the vendor follow-up.",
+      "ops": [{ "type": "set_current_agenda_item", "agendaItemId": "g2" }]
+    },
+    {
+      "atMs": 28000,
+      "speaker": "Jordan",
+      "text": "Sam, can you own the vendor follow-up by Friday?",
+      "ops": [{ "type": "add_item", "kind": "action", "text": "Vendor follow-up", "ownerId": "a1", "due": "2026-09-18" }]
+    },
+    {
+      "atMs": 38000,
+      "speaker": "Sam",
+      "text": "Someone needs to update the budget sheet.",
+      "ops": [{ "type": "add_item", "kind": "action", "text": "Update the budget sheet", "ownerId": null }]
+    },
+    {
+      "atMs": 46000,
+      "speaker": "Jordan",
+      "text": "No, that one's Priya's.",
+      "ops": [{ "type": "update_item", "id": "L3", "ownerId": "a2" }]
+    },
+    {
+      "atMs": 56000,
+      "speaker": "Jordan",
+      "text": "That's a wrap.",
+      "ops": [{ "type": "set_meeting_status", "status": "wrapping" }]
+    }
+  ]
+}

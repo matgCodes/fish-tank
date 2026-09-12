@@ -1,5 +1,4 @@
 node_modules/
-package-lock.json
 .next/
 out/
 .env
@@ -9,3 +8,6 @@ out/
 *.log
 .vercel
 .claude/
+*.tsbuildinfo
+next-env.d.ts
+/coverage
