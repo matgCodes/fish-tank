@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speech-to-text bench</title>
+<style>
+  :root { color-scheme: light; }
+  [hidden] { display: none !important; }
+  body { font: 14px/1.45 system-ui, -apple-system, sans-serif; margin: 0; padding: 16px; background: #f6f6f4; color: #151515; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p { margin: 4px 0 10px; max-width: 70ch; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+  .card { background: #fff; border: 1px solid #d9d9d4; border-radius: 6px; padding: 10px 12px; }
+  .engine { flex: 1 1 280px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; background: #ececea; }
+  .ok { background: #d5f2da; } .warn { background: #fff0bd; } .bad { background: #ffd4d4; }
+  .interim { color: #777; font-style: italic; min-height: 1.45em; margin-top: 4px; }
+  #current { background: #fff; border: 2px solid #222; border-radius: 8px; padding: 16px 18px; margin: 10px 0; }
+  #line-text { font-size: 28px; line-height: 1.3; }
+  #line-meta { color: #666; font-size: 13px; }
+  .hint { display: inline-block; margin-top: 8px; padding: 2px 10px; border-radius: 10px; font-size: 15px; }
+  button { font: inherit; padding: 6px 12px; cursor: pointer; }
+  #mark { font-size: 18px; padding: 10px 20px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; background: #fff; }
+  th, td { border: 1px solid #deded9; padding: 3px 6px; text-align: left; vertical-align: top; }
+  textarea { width: 100%; box-sizing: border-box; font: 12px/1.4 ui-monospace, Menlo, monospace; }
+  #log { max-height: 200px; overflow: auto; font: 12px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; margin: 0; }
+  details { margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Speech-to-text bench</h1>
+<p>For issue #6. Chrome only. Tick the engines, press Start, read the big line aloud, and press <b>Space</b> the moment you finish it. When a silence countdown shows, stay quiet until it ends. Copy the results when you are done.</p>
+
+<div class="row">
+  <label><input type="checkbox" id="use-ws" checked> Web Speech API</label>
+  <label><input type="checkbox" id="use-aai" checked> AssemblyAI streaming</label>
+  <button id="start">Start</button>
+  <button id="stop" disabled>Stop</button>
+  <span class="badge" id="clock"></span>
+</div>
+
+<div class="row">
+  <div class="card engine"><b>Web Speech API</b> <span class="badge" id="st-ws">off</span> <span class="badge" id="nh-ws"></span><div class="interim" id="im-ws"></div></div>
+  <div class="card engine"><b>AssemblyAI streaming</b> <span class="badge" id="st-aai">off</span> <span class="badge" id="nh-aai"></span><div class="interim" id="im-aai"></div></div>
+</div>
+
+<div id="current">
+  <div id="line-meta"></div>
+  <div id="line-text"></div>
+  <div id="silence" class="hint" hidden></div>
+</div>
+
+<div class="row">
+  <button id="mark" disabled>Line done (Space)</button>
+  <button id="undo" disabled>Undo last mark</button>
+  <span id="progress"></span>
+</div>
+
+<h2 style="font-size:15px;margin:16px 0 6px">Results</h2>
+<div class="row">
+  <button id="copy">Copy results as Markdown</button>
+  <span id="copied"></span>
+  <button id="reset">Reset all results</button>
+</div>
+<textarea id="md" rows="14" readonly></textarea>
+
+<details>
+  <summary>Per-line table</summary>
+  <div class="scroll"><table id="table"></table></div>
+</details>
+
+<details>
+  <summary>Script lines</summary>
+  <p>One line per row. Prefix a line with <code>[silence 30]</code> to hold 30 seconds of silence before it. Marked lines keep their own text, so replacing the script does not change earlier results.</p>
+  <textarea id="script" rows="12"></textarea>
+  <div class="row"><button id="apply-script">Use these lines</button><button id="default-script">Restore provisional lines</button></div>
+</details>
+
+<details open>
+  <summary>Event log</summary>
+  <pre id="log"></pre>
+</details>
+
+<script src="analysis.js"></script>
+<script>
+'use strict';
+const B = window.SttBench;
+const $ = (id) => document.getElementById(id);
+const now = () => performance.timeOrigin + performance.now();
+const STORE = 'stt-bench-v1';
+
+function freshState(script) {
+  return { script: script || B.DEFAULT_SCRIPT, pass: 1, idx: 0, marks: [], finals: { ws: [], aai: [] }, events: [], activeMs: { ws: 0, aai: 0 } };
+}
+function loadState() {
+  try { const v = JSON.parse(localStorage.getItem(STORE)); return v && Array.isArray(v.marks) ? v : null; } catch { return null; }
+}
+function save() { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} }
+
+let S = loadState() || freshState();
+let lines = B.parseScript(S.script);
+let running = false, runStart = 0, runEngines = [];
+const lastFinalAt = { ws: 0, aai: 0 };
+
+function log(engine, kind, msg, extra) {
+  S.events.push({ t: now(), engine, kind, msg: msg || '', ...(extra || {}) });
+  save();
+  renderLog();
+}
+const status = (engine) => (text, cls) => { const el = $('st-' + engine); el.textContent = text; el.className = 'badge ' + (cls || ''); };
+const onInterim = (engine) => (text) => { $('im-' + engine).textContent = text || ''; };
+const onFinal = (engine) => (text) => {
+  text = String(text || '').trim();
+  if (!text) return;
+  const t = now();
+  S.finals[engine].push({ t, text });
+  lastFinalAt[engine] = t;
+  save();
+  render();
+};
+
+// Web Speech API: continuous recognition, restarted from onend until stopped.
+function makeWebSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const set = status('ws'), fin = onFinal('ws'), interim = onInterim('ws');
+  const FATAL = new Set(['not-allowed', 'service-not-allowed', 'language-not-supported', 'audio-capture']);
+  let rec = null, want = false, fatal = false, endedAt = null, lastError = null;
+
+  function build() {
+    rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    rec.onstart = () => {
+      if (endedAt != null) {
+        const gap = now() - endedAt;
+        log('ws', 'restart', `restarted, gap ${Math.round(gap)} ms`, { gap });
+        endedAt = null;
+      } else {
+        log('ws', 'start', 'recognition started');
+      }
+      set('listening', 'ok');
+    };
+    rec.onresult = (e) => {
+      let partial = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) fin(r[0].transcript);
+        else partial += r[0].transcript;
+      }
+      interim(partial);
+    };
+    rec.onerror = (e) => {
+      lastError = e.error;
+      log('ws', 'error', e.error + (e.message ? ': ' + e.message : ''), { error: e.error });
+      if (FATAL.has(e.error)) { fatal = true; set('stopped: ' + e.error, 'bad'); }
+    };
+    rec.onend = () => {
+      interim('');
+      if (!want || fatal) {
+        log('ws', 'end', 'recognition ended');
+        if (!fatal) set('off', '');
+        return;
+      }
+      endedAt = now();
+      log('ws', 'end', 'service ended, restarting');
+      set('restarting', 'warn');
+      const delay = lastError === 'network' ? 1000 : 0;
+      lastError = null;
+      setTimeout(() => restart(0), delay);
+    };
+  }
+
+  function restart(tries) {
+    if (!want || fatal) return;
+    try {
+      rec.start();
+    } catch (err) {
+      log('ws', 'error', 'start() threw: ' + err.message, { error: 'start-threw' });
+      if (tries < 5) setTimeout(() => restart(tries + 1), 300);
+      else set('restart failed', 'bad');
+    }
+  }
+
+  return {
+    start() {
+      if (!SR) { set('not supported in this browser', 'bad'); log('ws', 'error', 'SpeechRecognition is missing', { error: 'unsupported' }); return; }
+      want = true; fatal = false; endedAt = null; lastError = null;
+      build();
+      set('starting', 'warn');
+      restart(0);
+    },
+    stop() { want = false; if (rec) { try { rec.stop(); } catch {} } },
+  };
+}
+
+// AssemblyAI v3 streaming: server mints a single-use token, browser streams
+// 16-bit PCM at the AudioContext's own sample rate, final = end_of_turn.
+function makeAssembly() {
+  const set = status('aai'), fin = onFinal('aai'), interim = onInterim('aai');
+  let want = false, ws = null, ctx = null, stream = null, src = null, proc = null, attempts = 0, closedAt = null;
+
+  async function getToken() {
+    const r = await fetch('/token', { cache: 'no-store' });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const err = new Error(body.error || 'token HTTP ' + r.status);
+      err.code = r.status === 503 ? 'no-key' : 'token-' + r.status;
+      throw err;
+    }
+    return body.token;
+  }
+
+  async function connect() {
+    if (!want) return;
+    let token;
+    try {
+      token = await getToken();
+    } catch (err) {
+      log('aai', 'error', err.message, { error: err.code || 'token' });
+      if (err.code === 'no-key') { want = false; teardownAudio(); set('no API key on the server', 'bad'); return; }
+      retry();
+      return;
+    }
+    if (!want) return;
+    const params = new URLSearchParams({ token, sample_rate: String(ctx.sampleRate), encoding: 'pcm_s16le', format_turns: 'false' });
+    const sock = new WebSocket('wss://streaming.assemblyai.com/v3/ws?' + params);
+    ws = sock;
+    sock.onmessage = (m) => {
+      let d;
+      try { d = JSON.parse(m.data); } catch { return; }
+      if (d.type === 'Begin') {
+        attempts = 0;
+        if (closedAt != null) {
+          const gap = now() - closedAt;
+          log('aai', 'restart', `reconnected, gap ${Math.round(gap)} ms`, { gap });
+          closedAt = null;
+        } else {
+          log('aai', 'start', `session started at ${ctx ? ctx.sampleRate : '?'} Hz`);
+        }
+        set('listening', 'ok');
+      } else if (d.type === 'Turn') {
+        if (d.end_of_turn) { fin(d.transcript); interim(''); } else interim(d.transcript);
+      } else if (d.type === 'Termination') {
+        log('aai', 'end', `terminated, audio ${d.audio_duration_seconds} s, session ${d.session_duration_seconds} s`);
+      } else if (d.error || d.type === 'Error') {
+        log('aai', 'error', JSON.stringify(d).slice(0, 200), { error: 'server-message' });
+      }
+    };
+    sock.onerror = () => log('aai', 'error', 'socket error event', { error: 'socket' });
+    sock.onclose = (e) => {
+      if (ws === sock) ws = null;
+      interim('');
+      if (want) {
+        log('aai', 'close', `unexpected close ${e.code} ${e.reason || ''}`.trim(), { error: 'close-' + e.code });
+        if (closedAt == null) closedAt = now();
+        set('reconnecting', 'warn');
+        retry();
+      } else {
+        log('aai', 'close', 'closed ' + e.code);
+        set('off', '');
+      }
+    };
+  }
+
+  function retry() {
+    attempts++;
+    if (attempts > 5) { set('gave up after 5 tries', 'bad'); log('aai', 'error', 'gave up reconnecting', { error: 'gave-up' }); return; }
+    setTimeout(connect, 1000 * attempts);
+  }
+
+  function teardownAudio() {
+    try { if (proc) proc.disconnect(); if (src) src.disconnect(); } catch {}
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    if (ctx) ctx.close().catch(() => {});
+    proc = src = stream = ctx = null;
+  }
+
+  return {
+    async start() {
+      want = true; attempts = 0; closedAt = null;
+      set('opening mic', 'warn');
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+      } catch (err) {
+        want = false;
+        log('aai', 'error', 'microphone: ' + err.message, { error: 'mic' });
+        set('mic unavailable', 'bad');
+        return;
+      }
+      if (!want) { teardownAudio(); return; }
+      ctx = new AudioContext();
+      await ctx.resume();
+      src = ctx.createMediaStreamSource(stream);
+      proc = ctx.createScriptProcessor(4096, 1, 1);
+      proc.onaudioprocess = (e) => {
+        if (!want || !ws || ws.readyState !== WebSocket.OPEN) return;
+        const f = e.inputBuffer.getChannelData(0);
+        const pcm = new Int16Array(f.length);
+        for (let i = 0; i < f.length; i++) {
+          const s = Math.max(-1, Math.min(1, f[i]));
+          pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        ws.send(pcm.buffer);
+      };
+      src.connect(proc);
+      proc.connect(ctx.destination);
+      set('connecting', 'warn');
+      connect();
+    },
+    stop() {
+      want = false;
+      const sock = ws;
+      teardownAudio();
+      if (sock && sock.readyState === WebSocket.OPEN) {
+        try { sock.send(JSON.stringify({ type: 'Terminate' })); } catch {}
+        set('finishing last turn', 'warn');
+        setTimeout(() => { if (sock.readyState < 2) sock.close(1000); }, 3000);
+      } else {
+        if (sock) sock.close();
+        set('off', '');
+      }
+    },
+  };
+}
+
+const engines = { ws: makeWebSpeech(), aai: makeAssembly() };
+
+function start() {
+  runEngines = [['ws', 'use-ws'], ['aai', 'use-aai']].filter(([, id]) => $(id).checked).map(([e]) => e);
+  if (!runEngines.length || !lines.length) return;
+  running = true;
+  runStart = now();
+  for (const e of runEngines) { lastFinalAt[e] = runStart; engines[e].start(); }
+  if (document.activeElement) document.activeElement.blur();
+  render();
+}
+
+function stop() {
+  if (!running) return;
+  const t = now();
+  for (const e of runEngines) { engines[e].stop(); S.activeMs[e] += t - runStart; }
+  running = false;
+  save();
+  render();
+}
+
+function mark() {
+  if (!running) return;
+  const l = lines[S.idx];
+  if (!l) return;
+  S.marks.push({ t: now(), pass: S.pass, idx: S.idx, text: l.text, silence: l.silence, engines: [...runEngines] });
+  S.idx++;
+  if (S.idx >= lines.length) { S.idx = 0; S.pass++; }
+  save();
+  render();
+}
+
+function undo() {
+  const m = S.marks.pop();
+  if (!m) return;
+  S.idx = m.idx;
+  S.pass = m.pass;
+  save();
+  render();
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function renderTable(inProgress) {
+  const used = B.enginesUsed(S);
+  const A = Object.fromEntries(used.map((e) => [e, B.analyze(S, e, inProgress)]));
+  let html = '<tr><th>Pass</th><th>#</th><th>Scripted</th>' + used.map((e) => `<th>${esc(B.NAMES[e])} heard</th><th>lag</th><th>missing</th>`).join('') + '</tr>';
+  S.marks.forEach((m, k) => {
+    html += `<tr><td>${m.pass}</td><td>${m.idx + 1}</td><td>${esc((m.silence ? `[silence ${m.silence}] ` : '') + m.text)}</td>`;
+    for (const e of used) {
+      const r = A[e].rows[k];
+      html += r.active
+        ? `<td>${esc(r.heard || '(nothing)')}</td><td>${B.fmtMs(r.lag)}</td><td>${esc(r.missing.join(' ') || '-')}</td>`
+        : '<td>not run</td><td>-</td><td>-</td>';
+    }
+    html += '</tr>';
+  });
+  $('table').innerHTML = html;
+}
+
+function renderLog() {
+  $('log').textContent = S.events.slice(-200).reverse()
+    .map((e) => `${new Date(e.t).toLocaleTimeString()}  ${e.engine.padEnd(3)}  ${e.kind.padEnd(7)}  ${e.msg}`)
+    .join('\n');
+}
+
+function render() {
+  const l = lines[S.idx];
+  $('line-text').textContent = l ? l.text : 'No script lines. Add some under Script lines.';
+  $('line-meta').textContent = l ? `Pass ${S.pass}, line ${S.idx + 1} of ${lines.length}` : '';
+  $('mark').disabled = !running || !l;
+  $('undo').disabled = !S.marks.length;
+  $('start').disabled = running;
+  $('stop').disabled = !running;
+  for (const id of ['use-ws', 'use-aai', 'apply-script', 'default-script', 'reset']) $(id).disabled = running;
+  $('progress').textContent = `${S.marks.length} lines marked`;
+  const inProgress = l ? l.text : '';
+  renderTable(inProgress);
+  $('md').value = B.toMarkdown(S, inProgress);
+  tick();
+}
+
+function tick() {
+  const t = now();
+  const listened = (e) => S.activeMs[e] + (running && runEngines.includes(e) ? t - runStart : 0);
+  $('clock').textContent = `Listening time: Web Speech ${B.fmtMin(listened('ws'))}, AssemblyAI ${B.fmtMin(listened('aai'))}`;
+  for (const e of B.ENGINES) {
+    const el = $('nh-' + e);
+    if (running && runEngines.includes(e)) {
+      const s = (t - lastFinalAt[e]) / 1000;
+      el.textContent = s > 8 ? `not hearing, ${Math.floor(s)} s` : `last final ${Math.floor(s)} s ago`;
+      el.className = 'badge ' + (s > 8 ? 'warn' : '');
+    } else {
+      el.textContent = '';
+      el.className = 'badge';
+    }
+  }
+  const l = lines[S.idx], el = $('silence'), last = S.marks[S.marks.length - 1];
+  if (!l || !l.silence) { el.hidden = true; return; }
+  el.hidden = false;
+  if (!running || !last) {
+    el.textContent = `Stay silent ${l.silence} s after marking the previous line, then read this one.`;
+    el.className = 'hint warn';
+    return;
+  }
+  const left = Math.ceil(l.silence - (t - last.t) / 1000);
+  el.textContent = left > 0 ? `Stay silent: ${left} s` : 'Silence done. Read the line.';
+  el.className = 'hint ' + (left > 0 ? 'warn' : 'ok');
+}
+
+$('start').onclick = start;
+$('stop').onclick = stop;
+$('mark').onclick = () => { mark(); $('mark').blur(); };
+$('undo').onclick = () => { undo(); $('undo').blur(); };
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || e.repeat) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'textarea' || tag === 'input') return;
+  e.preventDefault();
+  mark();
+});
+
+$('copy').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($('md').value);
+    $('copied').textContent = 'Copied.';
+  } catch {
+    $('md').select();
+    $('copied').textContent = 'Text selected. Press Cmd+C.';
+  }
+  setTimeout(() => { $('copied').textContent = ''; }, 3000);
+};
+
+let resetArmed = false;
+$('reset').onclick = () => {
+  if (!resetArmed) {
+    resetArmed = true;
+    $('reset').textContent = 'Click again to erase all results';
+    setTimeout(() => { resetArmed = false; $('reset').textContent = 'Reset all results'; }, 4000);
+    return;
+  }
+  resetArmed = false;
+  $('reset').textContent = 'Reset all results';
+  S = freshState(S.script);
+  save();
+  renderLog();
+  render();
+};
+
+$('script').value = S.script;
+$('apply-script').onclick = () => {
+  const parsed = B.parseScript($('script').value);
+  if (!parsed.length) return;
+  S.script = $('script').value;
+  lines = parsed;
+  S.idx = 0;
+  save();
+  render();
+};
+$('default-script').onclick = () => { $('script').value = B.DEFAULT_SCRIPT; };
+
+window.addEventListener('beforeunload', stop);
+renderLog();
+render();
+setInterval(tick, 250);
+</script>
+</body>
+</html>
