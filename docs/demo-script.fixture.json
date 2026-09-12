@@ -1,0 +1,120 @@
+{
+  "name": "demo",
+  "note": "Draft demo script from the Demo script freeze ticket (#7). Human-readable version: docs/demo-script.md. Copy over fixtures/demo.json when frozen.",
+  "meeting": {
+    "meeting": {
+      "id": "demo",
+      "title": "Launch check-in",
+      "startsAt": "2026-09-12T14:00:00-07:00",
+      "endsAt": "2026-09-12T14:15:00-07:00",
+      "status": "scheduled"
+    },
+    "attendees": [
+      { "id": "a1", "name": "Sam" },
+      { "id": "a2", "name": "Maya" },
+      { "id": "a3", "name": "Jordan" }
+    ],
+    "agenda": [
+      { "id": "g1", "title": "Launch status", "plannedMinutes": 1 },
+      { "id": "g2", "title": "Vendor contracts", "plannedMinutes": 2 },
+      { "id": "g3", "title": "Launch date", "plannedMinutes": 1 }
+    ],
+    "currentAgendaItemId": null,
+    "ledger": [],
+    "listening": { "status": "listening", "lastHeardAt": null },
+    "followUp": { "status": "none" }
+  },
+  "script": [
+    {
+      "atMs": 0,
+      "speaker": "Jordan",
+      "text": "Okay, let's get started. First up is launch status.",
+      "ops": [
+        { "type": "set_meeting_status", "status": "in_progress" },
+        { "type": "set_current_agenda_item", "agendaItemId": "g1" }
+      ]
+    },
+    { "atMs": 7000, "speaker": "Sam", "text": "The build is green and the landing page is up on staging.", "ops": [{ "type": "no_op" }] },
+    { "atMs": 15000, "speaker": "Jordan", "text": "Nice. The open question is the blue design or the old one.", "ops": [{ "type": "no_op" }] },
+    { "atMs": 23000, "speaker": "Sam", "text": "The blue design tested better with users last week.", "ops": [{ "type": "no_op" }] },
+    {
+      "atMs": 31000,
+      "speaker": "Jordan",
+      "text": "Okay, we've decided. We're launching with the blue design.",
+      "ops": [{ "type": "add_item", "kind": "decision", "text": "Launch with the blue design" }]
+    },
+    { "atMs": 40000, "speaker": "Sam", "text": "Good, that settles a long debate.", "ops": [{ "type": "no_op" }] },
+    { "atMs": 48000, "speaker": "Sam", "text": "The launch checklist is about half done.", "ops": [{ "type": "no_op" }] },
+    {
+      "atMs": 66000,
+      "speaker": "Jordan",
+      "text": "We're running over on this one. Let's move on.",
+      "ops": [{ "type": "set_current_agenda_item", "agendaItemId": "g2" }]
+    },
+    { "atMs": 73000, "speaker": "Jordan", "text": "Next up, vendor contracts. The print vendor still hasn't signed.", "ops": [{ "type": "no_op" }] },
+    {
+      "atMs": 81000,
+      "speaker": "Jordan",
+      "text": "Sam, can you own the vendor follow-up by Friday?",
+      "ops": [{ "type": "add_item", "kind": "action", "text": "Vendor follow-up", "ownerId": "a1", "due": "2026-09-18" }]
+    },
+    { "atMs": 89000, "speaker": "Sam", "text": "Yes, I'll get it done by Friday.", "ops": [{ "type": "no_op" }] },
+    {
+      "atMs": 97000,
+      "speaker": "Sam",
+      "text": "Jordan, can you send the launch announcement by Wednesday?",
+      "ops": [{ "type": "add_item", "kind": "action", "text": "Send the launch announcement", "ownerId": "a3", "due": "2026-09-16" }]
+    },
+    { "atMs": 105000, "speaker": "Jordan", "text": "Sure, Wednesday works.", "ops": [{ "type": "no_op" }] },
+    {
+      "atMs": 113000,
+      "speaker": "Jordan",
+      "text": "Someone also needs to update the budget spreadsheet before the review.",
+      "ops": [{ "type": "add_item", "kind": "action", "text": "Update the budget spreadsheet before the review", "ownerId": null, "due": null }]
+    },
+    { "atMs": 121000, "speaker": "Sam", "text": "I can take that.", "ops": [{ "type": "no_op" }] },
+    {
+      "atMs": 129000,
+      "speaker": "Jordan",
+      "text": "No, that one's Maya's. She owns the budget.",
+      "ops": [{ "type": "update_item", "id": "L4", "ownerId": "a2" }]
+    },
+    {
+      "atMs": 139000,
+      "speaker": "Jordan",
+      "text": "Last item is the launch date, but we already covered it.",
+      "ops": [{ "type": "set_current_agenda_item", "agendaItemId": "g3" }]
+    },
+    {
+      "atMs": 147000,
+      "speaker": "Jordan",
+      "text": "That's a wrap. Thanks, everyone.",
+      "ops": [{ "type": "set_meeting_status", "status": "wrapping" }]
+    }
+  ],
+  "taps": [
+    {
+      "atMs": 155000,
+      "who": "Jordan",
+      "note": "Taps End meeting? on the room display. Door sign flips to available.",
+      "source": "human",
+      "ops": [{ "type": "set_meeting_status", "status": "ended" }]
+    },
+    {
+      "atMs": 175000,
+      "who": "Sam",
+      "note": "Taps Send on the proposed follow-up. Not an operation in the schema; owned by the follow-up send ticket (#13).",
+      "source": "human",
+      "ops": []
+    }
+  ],
+  "expectedEnd": {
+    "meetingStatus": "ended",
+    "ledger": [
+      { "id": "L1", "kind": "decision", "text": "Launch with the blue design", "ownerId": null, "due": null },
+      { "id": "L2", "kind": "action", "text": "Vendor follow-up", "ownerId": "a1", "due": "2026-09-18" },
+      { "id": "L3", "kind": "action", "text": "Send the launch announcement", "ownerId": "a3", "due": "2026-09-16" },
+      { "id": "L4", "kind": "action", "text": "Update the budget spreadsheet before the review", "ownerId": "a2", "due": null }
+    ]
+  }
+}
