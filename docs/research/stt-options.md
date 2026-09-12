@@ -32,9 +32,9 @@ identification out of scope, so this row should not drive the pick.
   routine in a meeting; the other two mean the demo is broken [2].
 - Deepgram: the 10 s no-audio close (`NET-0001`) is real. Either keep mic frames
   flowing or send KeepAlive every 3–5 s [7].
-- Deepgram temp tokens default to a 30 s TTL. Mint with a longer `ttl_seconds`
-  or you will lose a connect race [5]. Whether an already-open stream survives
-  token expiry is **unconfirmed**.
+- Deepgram temp tokens default to a 30 s TTL (max 3600 s). Mint with a longer
+  TTL or you will lose a connect race [5]. Whether an already-open stream
+  survives token expiry is **unconfirmed**.
 - Deepgram endpointing uses a VAD, and "background noise can cause the VAD to
   trigger and prevent the detection of silent audio" — a real room is noisy, so
   prefer `utterance_end_ms` with `interim_results=true` [8].
@@ -67,8 +67,8 @@ and temp-token-over-WebSocket is unconfirmed from the docs read — that is an
 afternoon of unknowns we do not need today.
 
 **Fallback if third-party WebSockets are blocked at the venue.** Be precise about
-what fails: a blocked WebSocket upgrade to `api.deepgram.com` or
-`streaming.assemblyai.com` is a network-path problem, and a relay on our own laptop
+what fails: a blocked WebSocket upgrade to the provider's streaming host
+(`streaming.assemblyai.com` [13]) is a network-path problem, and a relay on our laptop
 does **not** fix it — the relay sits on the same blocked network. So the relay is a
 key-hygiene tool, not a network fallback. What does help is that Web Speech uses a
 different network path than our `wss://` (Chrome talks to its own web service [1]),
