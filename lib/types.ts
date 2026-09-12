@@ -44,7 +44,7 @@ export interface MeetingState {
   currentAgendaItemId: string | null;
   ledger: LedgerItem[];
   listening: { status: ListeningStatus; lastHeardAt: string | null };
-  followUp: { status: FollowUpStatus; text?: string; sentAt?: string };
+  followUp: { status: FollowUpStatus; text?: string; sentAt?: string; error?: string };
 }
 
 export type Operation =

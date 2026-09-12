@@ -64,6 +64,11 @@ export function apply(ops: unknown[], source: Source): ApplyResult {
   return result;
 }
 
+export function updateFollowUp(patch: Partial<MeetingState["followUp"]>) {
+  Object.assign(getStore().state.followUp, patch);
+  publish();
+}
+
 export function resetState(seed: MeetingState = emptyState()) {
   const store = getStore();
   store.state = structuredClone(seed);

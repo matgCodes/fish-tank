@@ -1,3 +1,4 @@
+import { syncFollowUp } from "./followUp";
 import type { LedgerKind, MeetingState, MeetingStatus, Operation, Source } from "./types";
 
 export interface ApplyContext {
@@ -106,5 +107,6 @@ export function applyOps(state: MeetingState, ops: unknown[], source: Source, ct
     }
   }
 
+  if (result.applied.length) syncFollowUp(state);
   return result;
 }
