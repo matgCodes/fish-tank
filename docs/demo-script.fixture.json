@@ -1,6 +1,6 @@
 {
   "name": "demo",
-  "note": "Draft demo script from the Demo script freeze ticket (#7). Human-readable version: docs/demo-script.md. Copy over fixtures/demo.json when frozen.",
+  "note": "Frozen demo script from the Demo script freeze ticket (#7). Human-readable version: docs/demo-script.md. The extraction ticket (#11) copies this over fixtures/demo.json.",
   "meeting": {
     "meeting": {
       "id": "demo",
@@ -11,7 +11,7 @@
     },
     "attendees": [
       { "id": "a1", "name": "Sam" },
-      { "id": "a2", "name": "Maya" },
+      { "id": "a2", "name": "Dana" },
       { "id": "a3", "name": "Jordan" }
     ],
     "agenda": [
@@ -76,7 +76,7 @@
     {
       "atMs": 129000,
       "speaker": "Jordan",
-      "text": "No, that one's Maya's. She owns the budget.",
+      "text": "No, that one's Dana's. She owns the budget.",
       "ops": [{ "type": "update_item", "id": "L4", "ownerId": "a2" }]
     },
     {

@@ -1,6 +1,6 @@
 # Demo script
 
-Status: **draft for reaction** on the "Demo script freeze" ticket (#7). Not frozen.
+Status: **frozen** by the "Demo script freeze" ticket (#7).
 
 This is the four-minute meeting the demo runs, line by line, with what the room
 display shows after each line. It is also the fixture transcript the extraction
@@ -19,7 +19,7 @@ This is also the demo invite for invite import (#8).
 | Title | Launch check-in |
 | Starts | 2026-09-12 14:00 (-07:00) |
 | Ends | 2026-09-12 14:15 (-07:00) |
-| Attendees | Sam `a1`, Maya `a2`, Jordan `a3` |
+| Attendees | Sam `a1`, Dana `a2`, Jordan `a3` |
 
 | Agenda item | Id | Planned minutes |
 |---|---|---|
@@ -38,10 +38,9 @@ to available visibly early.
 
 - **Jordan** runs the meeting. Played by one teammate.
 - **Sam** reports status. Played by the other teammate.
-- **Maya** is on the invite and not in the room. She is only named.
+- **Dana** is on the invite and not in the room. She is only named.
 
-"Maya" is provisional. Both speech-to-text engines misheard "Priya" in every
-bench pass. Pick the name from the bench test at the end of this file.
+Dana was picked on the speech-to-text bench. See [Name check](#name-check).
 
 ## Before recording
 
@@ -70,7 +69,7 @@ Times are seconds from the first line. A line is about 7 seconds at a normal pac
 | 105 | Jordan | Sure, Wednesday works. | `no_op` | No change |
 | 113 | Jordan | Someone also needs to update the budget spreadsheet before the review. | `add_item action "Update the budget spreadsheet before the review"` | **L4** action with **"owner?"** |
 | 121 | Sam | I can take that. | `no_op` | Still "owner?". Without speaker identification the agent can't know who "I" is |
-| 129 | Jordan | No, that one's Maya's. She owns the budget. | `update_item L4 owner a2` | **L4 owner changes to Maya in place.** Hold 5 seconds |
+| 129 | Jordan | No, that one's Dana's. She owns the budget. | `update_item L4 owner a2` | **L4 owner changes to Dana in place.** Hold 5 seconds |
 | 139 | Jordan | Last item is the launch date, but we already covered it. | `set_current_agenda_item g3` | Launch date highlighted |
 | 147 | Jordan | That's a wrap. Thanks, everyone. | `set_meeting_status wrapping` | **"End meeting?"** prompt |
 | 155 | | *[Jordan taps "End meeting?"]* | Human: `set_meeting_status ended` | Meeting ended. Proposed follow-up appears |
@@ -91,9 +90,9 @@ Decisions
 Action items
 - Sam: Vendor follow-up, due Fri Sep 18
 - Jordan: Send the launch announcement, due Wed Sep 16
-- Maya: Update the budget spreadsheet before the review
+- Dana: Update the budget spreadsheet before the review
 
-Attendees: Sam, Maya, Jordan
+Attendees: Sam, Dana, Jordan
 ```
 
 ## What the script is built around
@@ -121,18 +120,20 @@ Attendees: Sam, Maya, Jordan
   `source: "human"`. Replay needs to apply those to reach the door sign flip
   and the follow-up.
 - Who sets `followUp.status: proposed` on `ended` is open for #13.
+- On the bench, Web Speech once heard "follow-up" as "follower". Extraction
+  should tolerate small mishears like that.
 
-## Name test on the bench
+## Name check
 
-Paste these into the bench's Script lines box, run one pass with both engines,
-and use the name both engines hear cleanly. The last two lines check the other
-names and trigger phrases in this script.
+The correction line was read on the speech-to-text bench with both engines
+listening, on 2026-09-12. "Priya" comes from the #6 run.
 
-```
-No, that one's Maya's. She owns the budget.
-No, that one's Dana's. She owns the budget.
-No, that one's Elena's. She owns the budget.
-No, that one's Marcus's. He owns the budget.
-Sam, can you own the vendor follow-up by Friday?
-Jordan, can you send the launch announcement by Wednesday?
-```
+| Name | Web Speech API | AssemblyAI streaming |
+|---|---|---|
+| Dana | 2 of 2 correct | 2 of 2 correct |
+| Marcus | 1 of 1 correct | 1 of 1 correct |
+| Maya | 1 of 2, once heard as "miles" | 2 of 2 correct |
+| Elena | 0 of 2, heard as "Alanis" and "Atlantis" | 2 of 2 correct |
+| Priya | 0 of 4 | 0 of 4 |
+
+"Sam" and "Jordan" were heard correctly by both engines in the action-item lines.
