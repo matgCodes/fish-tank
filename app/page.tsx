@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FollowUpPanel } from "@/components/FollowUpPanel";
 import type { MeetingState } from "@/lib/types";
 
 export default function StatePage() {
@@ -25,6 +26,7 @@ export default function StatePage() {
         {connected ? "connected" : "connecting…"}
         {receivedAt && ` · last update received ${receivedAt}`}
       </p>
+      {state && <FollowUpPanel followUp={state.followUp} />}
       <pre id="state">{state ? JSON.stringify(state, null, 2) : "waiting for state"}</pre>
     </main>
   );

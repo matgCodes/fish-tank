@@ -18,8 +18,9 @@ MeetingState
   ledger:       [LedgerItem]
   listening:    { status, lastHeardAt }
                 status: listening | not_hearing | paused | offline
-  followUp:     { status, text?, sentAt? }
+  followUp:     { status, text?, sentAt?, error? }
                 status: none | proposed | sent
+                error: last failed send, kept until a send succeeds
 
 LedgerItem
   id:        string, stable, assigned by the server on add ("L1", "L2", ...)
@@ -81,6 +82,17 @@ Display taps
 - Action item, `ownerId: null`: "owner?", tap to assign.
 - Action item, `due: null`: nothing.
 - Decision: no owner or due shown.
+
+## Follow-up
+
+- On `ended`, the server renders the follow-up from the title, ledger, and
+  attendees and sets `proposed`. While `proposed`, it re-renders after every
+  applied operation, so a tap-assigned owner reaches the message.
+- Format, Slack mrkdwn: title, Decisions, Action items as
+  `• text — owner name (or "owner?"), due date`, Attendees.
+- Only a human tap sends, through `POST /api/follow-up/send`. Success sets
+  `sent` and `sentAt` and freezes the text. A failed post keeps `proposed` and
+  sets `error`, shown on the display with a retry.
 
 ## Claude call shape
 

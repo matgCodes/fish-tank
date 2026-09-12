@@ -20,7 +20,8 @@ the open tickets. See `docs/agents/issue-tracker.md`.
 ```sh
 npm install
 npm run dev        # binds 0.0.0.0:3000 so a phone on the same Wi-Fi can load it
-npm test           # operations applier
+npm test           # operations applier and follow-up
+cp .env.example .env.local   # then set SLACK_WEBHOOK_URL
 ```
 
 Open `http://<laptop LAN IP>:3000` on every display. On macOS, allow
@@ -36,6 +37,9 @@ incoming connections for node if the firewall asks.
 | `POST /api/ops` | `{ source: "agent" \| "human", ops: Operation[] }` |
 | `GET /api/events` | Server-sent events: full state on connect and on every change |
 | `POST /api/replay` | `{ fixture?: "demo", speed?: number }` resets state and replays |
+| `lib/followUp.ts` | Renders the follow-up as Slack mrkdwn and posts it to the webhook |
+| `components/FollowUpPanel.tsx` | Proposed follow-up, send tap, sent stamp, failure banner with retry |
+| `POST /api/follow-up/send` | Posts the proposed follow-up to `SLACK_WEBHOOK_URL`; marks sent or records the error |
 
 ```sh
 curl -X POST localhost:3000/api/ops -H 'content-type: application/json' \
