@@ -11,6 +11,11 @@ built during the event. Planning notes from before build day are in
 `docs/CONCEPT_PLAN.md`; the decided operations schema is
 `docs/ops-schema-draft.md`.
 
+## Links
+
+- Announcement post: https://lnkd.in/p/gdgxRhnV
+- Build map on GitHub Issues: https://github.com/matgCodes/fish-tank/issues/1
+
 ## Why the room matters
 
 The agent is not a chat window. It is a participant with hands. The room
